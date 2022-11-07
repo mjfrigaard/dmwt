@@ -1,0 +1,422 @@
+---
+title: "image-magick"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{image-magick}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+library(rmdformats)
+library(hrbrthemes)
+library(tidyverse)
+library(rvest)
+library(XML)
+library(magrittr)
+library(xml2)
+library(here)
+library(magick)
+# library(ggpubr)
+# library(jpeg)
+# install.packages("paletteer")
+library(paletteer)
+library(ggthemes)
+library(patchwork)
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  fig.path = "../man/figures/",
+  tidy = FALSE,
+  collapse = TRUE,
+  comment = "#>",
+  dev = "ragg_png",
+  dpi = 320,
+  out.width = "80%",
+  fig.width = 6.5,
+  fig.asp = 0.618,
+  fig.retina = 2,
+  fig.align = 'center'
+)
+# knitr::opts_knit$set(root.dir = '/Users/mjfrigaard/Dropbox/@projects/high-priority/@apps/dmwt/')
+# set width
+options(width = 60, max.print = 300)
+```
+
+
+# Texas death row executed offenders website
+
+This continues with the [Texas Department of Criminal Justice data](http://www.tdcj.state.tx.us/death_row/dr_executed_offenders.html), which keeps records of every inmate executed. 
+
+We will load previous .csv file of all executions. 
+
+## Packages 
+
+```{r packages, eval=FALSE}
+library(knitr)
+library(rmdformats)
+library(hrbrthemes)
+library(tidyverse)
+library(rvest)
+library(XML)
+library(magrittr)
+library(xml2)
+library(here)
+library(magick)
+library(ggpubr)
+library(jpeg)
+library(paletteer)
+library(ggthemes)
+library(patchwork)
+library(ggrepel)
+```
+
+## The `magik` package
+
+I will be using the [magik](https://cran.r-project.org/web/packages/magick/vignettes/intro.html) package for processing and manipulating these images. I advise checking out the entire vignette for more examples. 
+
+## Create a test image
+
+The executed offender we'll include in the plot is [Billy Joe Woods](https://www.nytimes.com/1997/04/15/us/after-21-year-wait-texas-executes-man.html) from Waller County, Texas. He was executed on April 14th, 1997. The LA Times covered this case in an article titled, [Executions in Texas: No Big Deal](https://www.latimes.com/archives/la-xpm-1997-05-20-mn-60637-story.html). 
+
+> "*At this rate, with 12 executions already, 1997 is expected to become the busiest year ever on Texas’ death row--or any other state’s, for that matter--surpassing the previous record of 19, set here in 1995. If and when that happens--most likely next month--it could very well reignite the debate over capital punishment across the nation, inspiring activists on both sides of the issue alternately to hail and condemn the milestone.*"
+
+
+I create `test_magick_img` from `magick::image_read()`, and then go on making the transformations as necessary. 
+
+```{r permanent-test_image, echo=FALSE, include=FALSE}
+"https://www.tdcj.texas.gov/death_row/dr_info/woodsbillyjoe.jpg" -> test_image
+```
+ 
+
+```{r test_magick_img}
+test_magick_img <- magick::image_read(test_image)
+```
+
+If we print `test_magick_img` to the console, the images comes up in the viewer pane.
+
+```{r test_magick_img-1-png, echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/test_magick_img-1.png")
+```
+
+
+*TIP: come up with a naming convention for each step so you can use RStudio's viewer pane to see the manipulations.*
+
+## Basic transformations
+
+These functions are for basic image movement/manipulations you would do with any basic photo editing app.
+
+### Crop with `magick::image_crop()`
+
+Now I want to remove the text and focus on the mugshot. This might need to be adjusted slightly for each new `test_magick_img`.
+
+```{r crop_750_1000_10}
+# crop this image
+crop_750_1000_10 <- magick::image_crop(
+  image = test_magick_img,
+  geometry = "750x1000+10"
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_750_1000_10-1.png")
+```
+
+This should have trimmed the extra space off the bottom of the image. 
+
+### Rotate with `magick::image_rotate()`
+
+I want to rotate this image by 90 degrees. 
+
+```{r crop_750_1000_10_rotate90}
+# rotate this image
+crop_750_1000_10_rotate90 <- magick::image_rotate(
+  crop_750_1000_10,
+  degrees = 90
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_750_1000_10_rotate90-1.png")
+```
+
+Now I want to remove the rest of the text and focus on the mugshot. This might need to be adjusted slightly for each new `test_image`.
+
+```{r crop_850_950_60}
+# crop this image
+crop_850_950_60 <- magick::image_crop(
+  image = crop_750_1000_10_rotate90,
+  geometry = "850x950+60"
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_850_950_60-1.png")
+```
+
+
+
+Now I will rotate this image back to center (`image_rotate` again) and flip it using `magick::image_flip()`
+
+```{r test_magick_rotate270}
+# rotate this image
+crop_850_950_60_rotate270 <- magick::image_rotate(
+  crop_850_950_60,
+  degrees = 270)
+# rotate this image
+crop_850_950_60_flip <- magick::image_flip(crop_850_950_60_rotate270)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_850_950_60_flip-1.png")
+```
+
+
+
+We'll crop the rest of the text out of the image, trim the white-space for the plot, and flip the image. 
+
+```{r crop_750_255_300}
+# crop this image
+crop_750_255_300 <- magick::image_crop(
+  image = crop_850_950_60_flip,
+  geometry = "750x255+300"
+)
+# flip this image again
+crop_850_950_60_flip <- magick::image_flip(crop_750_255_300)
+```
+
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_850_950_60_flip-1.png")
+```
+
+Now crop out the last little bit of the document. 
+
+```{r crop_435_352_1}
+# crop the dot out
+crop_435_352_1 <- magick::image_crop(
+  image = crop_850_950_60_flip,
+  geometry = "435x352+1"
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/crop_435_352_1-1.png")
+```
+
+### Image effects with `magick`
+
+We will use `magick::image_trim()` to clean the image up a bit. 
+
+```{r test_magick_clean}
+# Here we will trim the image up a bit with the `fuzz` argument
+test_magick_clean <- magick::image_trim(
+  image = crop_435_352_1,
+  fuzz = 1
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/test_magick_clean-1.png")
+```
+
+Now that I have all the trimming on and cropping done, I will add some effects for the `ggplot2` image. 
+
+I want the image to have a bit more contrast, so I will use `magick::image_contrast()` to create these effects. 
+
+```{r test_magick_final}
+test_magick_final <- magick::image_contrast(image = test_magick_clean, 
+  sharpen = TRUE 
+)
+```
+
+```{r , echo=FALSE, fig.align='center'}
+knitr::include_graphics(path = "../man/figures/test_magick_final-1.png")
+```
+
+Export the image as a `.jpg`
+
+```{r export-test_magick_final}
+magick::image_write(test_magick_final,
+        path = "../man/figures/test_magick_final.jpg")
+```
+
+## Import the data
+
+```{r data-raw, echo=FALSE}
+fs::dir_tree("../inst/extdata/2022-11-01/")
+```
+
+Below we will import the most recent data.
+
+```{r import-ExecutedOffenders}
+ExecutedOffenders <- readr::read_rds(
+  "../inst/extdata/2022-11-01/ExecutedOffenders.rds")
+```
+
+Wrangle these `date` and `race` variables, 
+
+```{r date-vars}
+ExecOffendComp <- ExecutedOffenders %>%
+  dplyr::mutate(
+    date = lubridate::mdy(date),
+    year = lubridate::year(date),
+    yday = lubridate::yday(date),
+    month = lubridate::month(date, label = TRUE)) 
+```
+
+View our data:
+
+```{r skimr-ExecOffendComp}
+ExecOffendComp %>% dplyr::glimpse()
+```
+
+I want to graph the number of executions over time (`year`) by `race`. I can do this by getting a grouped (counted) data from using `dplyr`'s `count()` function.
+
+## Build plot data
+
+I create `TotalExecYear` as the data for the image to appear on top of.
+
+```{r TotalExecYear}
+# TotalExecYear ----
+TotalExecYear <- ExecOffendComp |>
+  dplyr::count(year, sort = TRUE)
+head(TotalExecYear)
+```
+
+### Import `.jpg`
+
+```{r imgJPEG}
+library(jpeg)
+imgJPEG <- jpeg::readJPEG("../man/figures/test_magick_final.jpg")
+```
+
+### Build labels 
+
+```{r labs_bjw}
+labs_bjw <- labs(
+  title = "Billy Joe Woods was the twelfth execution in Texas in 1997",
+  subtitle = "1997 is expected to become the busiest year ever on Texas’ death row",
+  caption = "https://www.latimes.com/archives/la-xpm-1997-05-20-mn-60637-story.html",
+  x = "Year",
+  y = "Total Executions"
+)
+```
+
+
+### Build a base plot 
+
+```{r ggp2_bjw_base}
+ggp2_bjw_base <- ggplot(
+  data = TotalExecYear, 
+  aes(x = factor(year),
+    y = n)) 
+```
+
+### Create `background_image()` with `ggpubr` 
+
+```{r}
+ggp2_bjw_bg_img <- ggpubr::background_image(imgJPEG) 
+```
+
+### Create column graph
+
+```{r ggp2_bjw_col}
+ggp2_bjw_col <- geom_col(aes(fill = n),
+  position = "stack",
+  show.legend = FALSE) 
+```
+
+### Build `x` scale
+ 
+```{r ggp2_bjw_x_discrete}
+ggp2_bjw_x_discrete <- scale_x_discrete(
+    breaks = c("1980","1985", "1990", "1995",
+    "2000", "2005", "2010", "2015", "2020"))
+```
+
+### Set colors with `paletteer`
+
+```{r ggp2_bjw_fill_pal}
+ggp2_bjw_fill_pal <- paletteer::scale_fill_paletteer_c("ggthemes::Red") 
+```
+
+## Build plot
+
+```{r base_plot}
+ggp2_bjw_base + 
+  ggp2_bjw_bg_img + 
+  ggp2_bjw_col + 
+  ggp2_bjw_x_discrete +
+  ggp2_bjw_fill_pal +
+  labs_bjw +
+  theme_minimal()
+```
+
+
+### Add labels using `ggrepel`
+
+We also want to label the specific point on the graph where Billy Joe Woods was executed. We can do this by filtering the `ExecOffenders` to only his row in that dataset, then creating a `label` variable with `paste0()`. We now want to limit the columns in `ExecOffLabel` to *only those values* on the graph, which are `year`, `n`,  and `label`
+
+```{r ExecOffLabel}
+ExecOffLabel <- ExecOffendComp %>% 
+  filter(last_name == "Woods" & first_name == "Billy") %>%
+  mutate(
+    year = factor(year),
+    label = paste0(last_name, ", ", first_name, ": executed on ", date),
+    n = 12) %>% 
+  select(year, n, label)
+ExecOffLabel
+```
+
+We will add the `geom_label_repel()` layer with `ExecOffLabelData` and increase the `size` of the label so it stands out. 
+
+```{r ggp2_bjw_lab_repel}
+ggp2_bjw_lab_repel <- ggrepel::geom_label_repel(
+  data = ExecOffLabel,
+      aes(x = year,
+          y = n,
+          label = label),
+          # set color and size...
+          color = "black",
+          size = 2) 
+```
+
+## Build plot with labels
+
+```{r add_ggp2_bjw_lab_repel}
+ggp2_bjw_base + 
+  ggp2_bjw_bg_img + 
+  ggp2_bjw_col + 
+  ggp2_bjw_lab_repel +
+  ggp2_bjw_x_discrete +
+  ggp2_bjw_fill_pal +
+  labs_bjw +
+  ggpubr::theme_pubclean()
+```
+
+### Add `1997` data point
+
+```{r ggp2_bjw_col_1997}
+BJW <- tibble::tibble(year = factor(1997), n = 37)
+ggp2_bjw_col_1997 <- geom_col(data = BJW, 
+    aes(x = year, y = n),
+    fill = "black",
+    position = "stack",
+    show.legend = FALSE)
+```
+
+## Build plot
+
+```{r add_ggp2_bjw_col_1997}
+ggp2_bjw_base + 
+  ggp2_bjw_bg_img + 
+  ggp2_bjw_col + 
+  ggp2_bjw_col_1997 +
+  ggp2_bjw_lab_repel +
+  ggp2_bjw_x_discrete +
+  ggp2_bjw_fill_pal +
+  labs_bjw +
+  ggthemes::theme_tufte()
+```

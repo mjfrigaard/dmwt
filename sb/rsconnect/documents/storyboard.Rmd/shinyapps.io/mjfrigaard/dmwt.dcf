@@ -1,0 +1,13 @@
+name: dmwt
+title: dmwt
+username:
+account: mjfrigaard
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7552529
+bundleId: 6485976
+url: https://mjfrigaard.shinyapps.io/dmwt/
+when: 1667852537.15521
+lastSyncTime: 1667852537.15523
+asMultiple: FALSE
+asStatic: FALSE
